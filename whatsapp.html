@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>أتمتة واتساب لمتجر سُكّر</title>
+<meta name="description" content="نموذج تفاعلي لأتمتة واتساب: ردود تلقائية واستقبال طلبات، من تصميم F9.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;700&family=Readex+Pro:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: split screen. A working chat with the bot on one side, the shop's incoming order board on the other. */
+:root{
+  --bg:#E9EDE8;--panel:#fff;--ink:#16211D;--mut:#667570;--line:#DCE3DE;
+  --wa-d:#0B5C4E;--wa:#25D366;--bub-in:#fff;--bub-out:#D9F7C9;--chat:#EFE9DF;--pink:#C2456B;--amber:#E7A23B;--blue:#3A7BD5;
+  --f-display:"Readex Pro","Noto Sans Arabic",Tahoma,sans-serif;--f-body:"Noto Sans Arabic",Tahoma,Arial,sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{font-family:var(--f-body);background:var(--bg);color:var(--ink);line-height:1.7;font-size:15px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+button,input{font:inherit}
+:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+svg{display:block}
+.ic{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.shell{max-width:1040px;margin:0 auto;display:grid;grid-template-columns:1fr 390px;gap:28px;padding-block:22px;align-items:start;min-height:100%}
+
+/* left column */
+.side h1{font-family:var(--f-display);font-size:clamp(1.5rem,3.6vw,2.1rem);line-height:1.3;font-weight:600;margin-bottom:8px}
+.side>p{color:var(--mut);max-width:44ch}
+.tag{display:inline-flex;align-items:center;gap:7px;font-size:.78rem;background:var(--ink);color:#E9EDE8;padding:2px 14px;border-radius:99px;margin-bottom:14px}
+.tag i{width:7px;height:7px;border-radius:50%;background:var(--wa)}
+.flow{display:flex;flex-wrap:wrap;gap:6px 8px;margin:18px 0 24px;font-size:.84rem}
+.flow span{background:var(--panel);border:1px solid var(--line);padding:2px 12px;border-radius:99px}
+.board{background:var(--panel);border:1px solid var(--line);border-radius:20px;overflow:hidden}
+.board h2{font-family:var(--f-display);font-size:1rem;font-weight:600;padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px}
+.board h2 small{font-family:var(--f-body);font-weight:400;color:var(--mut);font-size:.8rem}
+.orders{list-style:none;padding:0;max-height:320px;overflow-y:auto}
+.ord{display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);font-size:.9rem}
+.ord:last-child{border-bottom:0}
+.ord .no{font-variant-numeric:tabular-nums;font-weight:700;color:var(--wa-d)}
+.ord .who{font-weight:500}
+.ord .what{grid-column:2;color:var(--mut);font-size:.82rem}
+.ord .pr{grid-column:3;grid-row:1;font-weight:700;font-variant-numeric:tabular-nums}
+.st{grid-column:3;grid-row:2;justify-self:end;font-size:.72rem;padding:0 10px;border-radius:99px;font-weight:500}
+.st.new{background:#FFF1D6;color:#8A5A0A}
+.st.prep{background:#DCEBFF;color:#1F4F96}
+.st.ready{background:#D7F5E0;color:#0F6B36}
+.ord.fresh{animation:pop .9s ease-out}
+@keyframes pop{from{background:#E9FBE0}to{background:transparent}}
+.hint{margin-top:14px;font-size:.84rem;color:var(--mut)}
+
+/* phone chat */
+.phone{background:var(--panel);border-radius:30px;border:1px solid var(--line);overflow:hidden;display:flex;flex-direction:column;height:min(720px,calc(100dvh - 44px));min-height:560px;box-shadow:0 30px 60px -34px rgba(22,33,29,.5);position:sticky;top:22px}
+.hd{background:var(--wa-d);color:#fff;display:flex;align-items:center;gap:12px;padding:14px 16px}
+.av{width:42px;height:42px;border-radius:50%;background:#F4D6DE;color:var(--pink);display:grid;place-items:center;font-family:var(--f-display);font-weight:600;flex:none}
+.hd b{display:block;font-size:.98rem;line-height:1.3}
+.hd small{opacity:.8;font-size:.76rem}
+.hd button{margin-inline-start:auto;background:rgba(255,255,255,.14);color:#fff;border:0;border-radius:99px;padding:3px 14px;font-size:.78rem;cursor:pointer}
+.chat{flex:1;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:6px;background-color:var(--chat);
+  background-image:radial-gradient(rgba(11,92,78,.07) 1.2px,transparent 1.2px);background-size:22px 22px}
+.msg{max-width:84%;padding:8px 13px;border-radius:14px;font-size:.93rem;white-space:pre-line;box-shadow:0 1px 1px rgba(0,0,0,.08)}
+.msg.bot{align-self:flex-start;background:var(--bub-in);border-top-right-radius:4px}
+.msg.me{align-self:flex-end;background:var(--bub-out);border-top-left-radius:4px}
+.msg time{display:block;font-size:.66rem;color:var(--mut);text-align:end;margin-top:2px}
+.opts{align-self:flex-start;display:flex;flex-direction:column;gap:6px;width:84%}
+.opts button{background:#fff;color:var(--wa-d);border:0;border-radius:12px;padding:9px 12px;font-weight:700;font-size:.9rem;cursor:pointer;box-shadow:0 1px 1px rgba(0,0,0,.1);transition:background .12s}
+.opts button:hover{background:#F0FBF4}
+.opts button:disabled{opacity:.45;cursor:default}
+.typing{align-self:flex-start;background:#fff;border-radius:14px;padding:11px 14px;display:flex;gap:4px;box-shadow:0 1px 1px rgba(0,0,0,.08)}
+.typing i{width:7px;height:7px;border-radius:50%;background:#9AA7A2;animation:b 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes b{0%,60%,100%{transform:translateY(0);opacity:.5}30%{transform:translateY(-4px);opacity:1}}
+.comp{display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));background:#F5F6F4;border-top:1px solid var(--line)}
+.comp input{flex:1;min-width:0;border:0;border-radius:99px;padding:10px 16px;background:#fff}
+.comp button{width:42px;height:42px;border-radius:50%;border:0;background:var(--wa-d);color:#fff;display:grid;place-items:center;cursor:pointer;flex:none}
+.comp button svg{width:20px;height:20px;transform:scaleX(-1)}
+
+.cta{display:inline-flex;align-items:center;gap:8px;margin-top:20px;padding:11px 22px;border-radius:12px;background:var(--wa-d);color:#fff;text-decoration:none;font-weight:700}
+
+@media(max-width:860px){
+  .shell{grid-template-columns:1fr;gap:20px}
+  .phone{position:relative;top:0;order:-1;height:min(640px,calc(100dvh - 32px))}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="side">
+    <span class="tag"><i></i>نموذج تفاعلي من F9</span>
+    <h1>الردود والطلبات تصلك مرتبة، حتى وأنت مشغول</h1>
+    <p>جرّب المحادثة بنفسك: اضغط الأزرار أو اكتب رسالة. كل طلب تكمله يظهر في لوحة الطلبات أدناه كما يصل لصاحب المتجر.</p>
+    <div class="flow"><span>رسالة ترحيب</span><span>قائمة الأسعار</span><span>ساعات الدوام</span><span>الموقع</span><span>استقبال الطلب</span></div>
+    <section class="board" aria-label="لوحة الطلبات">
+      <h2>الطلبات الواردة <small id="cnt">٢ طلبات اليوم</small></h2>
+      <ul class="orders" id="orders"></ul>
+    </section>
+    <p class="hint">الطلبان الأولان مثالان جاهزان لتوضيح الشكل.</p>
+    <a class="cta" id="cta" target="_blank" rel="noopener" href="#">أبغى أتمتة لمشروعي</a>
+  </div>
+
+  <div class="phone">
+    <div class="hd"><div class="av">س</div><div><b>حلويات سُكّر</b><small id="status">متصل</small></div><button type="button" id="reset">إعادة</button></div>
+    <div class="chat" id="chat" aria-live="polite"></div>
+    <form class="comp" id="form"><input id="inp" type="text" placeholder="اكتب رسالتك" autocomplete="off"><button type="submit" aria-label="إرسال"><svg class="ic"><use href="#send"/></svg></button></form>
+  </div>
+</div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="send" viewBox="0 0 24 24"><path d="M3 11.500L21 3l-6 18-3.500-7.500L3 11.500zM11.500 13.500L21 3"/></symbol></svg>
+
+<script>
+const WHATSAPP="966597262948";
+const $=s=>document.querySelector(s);
+document.querySelector("#cta").href="https://wa.me/"+WHATSAPP+"?text="+encodeURIComponent("مرحباً، شفت نموذج أتمتة واتساب وأبغى أتمتة لمشروعي");
+
+const PRODUCTS=[
+  {id:"d",n:"بوكس تمر محشي",p:85},
+  {id:"k",n:"كيكة شوكولاتة صغيرة",p:120},
+  {id:"c",n:"كوكيز ١٢ حبة",p:60},
+  {id:"b",n:"بقلاوة ١ كجم",p:140}];
+const chat=$("#chat");
+let st,order,seq,orders;
+
+const now=()=>new Date().toLocaleTimeString("ar-SA",{hour:"numeric",minute:"2-digit"});
+function bubble(text,who){
+  const d=document.createElement("div");d.className="msg "+who;
+  d.innerHTML=text.replace(/</g,"&lt;")+`<time>${now()}</time>`;chat.appendChild(d);scroll();return d}
+function scroll(){chat.scrollTop=chat.scrollHeight}
+function opts(list){
+  const w=document.createElement("div");w.className="opts";
+  list.forEach(([label,fn])=>{const b=document.createElement("button");b.type="button";b.textContent=label;
+    b.onclick=()=>{w.querySelectorAll("button").forEach(x=>x.disabled=true);me(label);fn()};w.appendChild(b)});
+  chat.appendChild(w);scroll()}
+function me(t){bubble(t,"me")}
+function bot(text,then,delay=700){
+  const t=document.createElement("div");t.className="typing";t.innerHTML="<i></i><i></i><i></i>";chat.appendChild(t);scroll();
+  $("#status").textContent="يكتب الآن...";
+  setTimeout(()=>{t.remove();$("#status").textContent="متصل";bubble(text,"bot");then&&then()},delay)}
+
+const MAIN=()=>opts([["قائمة الأسعار",prices],["ساعات الدوام",hours],["موقع المحل",loc],["أبغى أطلب",start]]);
+function welcome(){
+  bot("هلا فيك في حلويات سُكّر.\nأنا المساعد الآلي، كيف أقدر أخدمك؟",MAIN,500)}
+function prices(){
+  bot("قائمة الأسعار:\n"+PRODUCTS.map(p=>`- ${p.n}: ${p.p} ر.س`).join("\n"),()=>opts([["أبغى أطلب",start],["القائمة الرئيسية",()=>bot("تفضل، اختر من الخيارات:",MAIN)]]))}
+function hours(){
+  bot("ساعات الدوام:\nالسبت إلى الخميس: ١٠ صباحاً إلى ١١ مساءً\nالجمعة: ٢ ظهراً إلى ١١ مساءً",()=>opts([["أبغى أطلب",start],["القائمة الرئيسية",()=>bot("تفضل، اختر من الخيارات:",MAIN)]]))}
+function loc(){
+  bot("موقعنا في جدة، حي الشاطئ.\nنوصّل لجميع أحياء المدينة.",()=>opts([["أبغى أطلب",start],["القائمة الرئيسية",()=>bot("تفضل، اختر من الخيارات:",MAIN)]]))}
+
+function start(){
+  order={};st="pick";
+  bot("اختر المنتج:",()=>opts(PRODUCTS.map(p=>[`${p.n} - ${p.p} ر.س`,()=>qty(p)])))}
+function qty(p){
+  order.p=p;
+  bot(`كم عدد "${p.n}"؟`,()=>opts([["1",()=>name(1)],["2",()=>name(2)],["3",()=>name(3)]]))}
+function name(q){
+  order.q=q;st="name";
+  bot("اكتب اسمك لو سمحت.")}
+function delivery(){
+  st="";
+  bot(`تشرفنا يا ${order.name}. توصيل أو استلام من المحل؟`,()=>opts([["توصيل",()=>done("توصيل")],["استلام من المحل",()=>done("استلام")]]))}
+function done(mode){
+  order.mode=mode;
+  const total=order.p.p*order.q;
+  const no=seq++;
+  bot(`ملخص طلبك:\n${order.q}× ${order.p.n}\nالطريقة: ${order.mode}\nالإجمالي: ${total} ر.س\n\nتم استلام طلبك برقم #${no}. وراح نتواصل معك للتأكيد.`,()=>{
+    addOrder({no,who:order.name,what:`${order.q}× ${order.p.n} · ${order.mode}`,pr:total,s:"new",fresh:true});
+    opts([["طلب جديد",start],["القائمة الرئيسية",()=>bot("تفضل، اختر من الخيارات:",MAIN)]])},900)}
+
+function addOrder(o){orders.unshift(o);renderOrders()}
+function renderOrders(){
+  const lab={new:"جديد",prep:"قيد التجهيز",ready:"جاهز"};
+  $("#orders").innerHTML=orders.map(o=>`<li class="ord ${o.fresh?"fresh":""}"><span class="no">#${o.no}</span><span class="who">${o.who.replace(/</g,"&lt;")}</span><span class="pr">${o.pr} ر.س</span><span class="what">${o.what}</span><span class="st ${o.s}">${lab[o.s]}</span></li>`).join("");
+  orders.forEach(o=>o.fresh=false);
+  $("#cnt").textContent=orders.length+" طلبات اليوم"}
+
+$("#form").addEventListener("submit",e=>{
+  e.preventDefault();const v=$("#inp").value.trim();if(!v)return;$("#inp").value="";me(v);
+  if(st==="name"){order.name=v.slice(0,30);delivery();return}
+  if(/سعر|اسعار|أسعار|قائمة/.test(v))return prices();
+  if(/دوام|ساعات|وقت|مفتوح/.test(v))return hours();
+  if(/موقع|وين|عنوان/.test(v))return loc();
+  if(/طلب|أبغى|ابغى/.test(v))return start();
+  bot("وصلتني رسالتك. أقدر أساعدك بهذه الخيارات:",MAIN)});
+
+function init(){
+  chat.innerHTML="";st="";order={};seq=1043;
+  orders=[{no:1042,who:"نورة",what:"2× بوكس تمر محشي · توصيل",pr:170,s:"prep"},{no:1041,who:"عبدالله",what:"1× بقلاوة ١ كجم · استلام",pr:140,s:"ready"}];
+  renderOrders();welcome()}
+$("#reset").onclick=init;
+init();
+</script>
+</body>
+</html>
